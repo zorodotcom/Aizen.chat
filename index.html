@@ -50,6 +50,9 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 .cell{height:56px;font:700 26px inherit;font-family:inherit;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);padding:0}
 .cell:disabled{opacity:1}.cell.X{color:var(--brand)}.cell.O{color:var(--brand2)}
 .g-act{display:flex;gap:8px;justify-content:center}.g-act .b{padding:7px 14px}
+button.b.rec{background:#dc2626;color:#fff}.row .b.alt{padding:10px 12px}
+.m audio{display:block;width:210px;max-width:100%;height:38px}
+.acts .b{padding:10px 8px}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script></head><body>
 <div id="gate"><div class="gc">
 <h1><span style="color:var(--brand)">Aizen</span><span style="color:var(--brand2)">.app</span></h1>
@@ -67,13 +70,13 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 <div class="bar"><span class="dot" id="sdot"></span><span id="stat">Not connected</span></div>
 <div id="reqs"></div><div class="game" id="gs" hidden></div>
 <div class="msgs" id="smsgs"></div>
-<div class="acts"><button class="b alt" id="next">Find someone</button><button class="b alt" id="add" disabled>Add friend</button><button class="b alt" id="xo">🎮 XOX</button></div>
-<div class="row"><input id="sin" placeholder="Waiting for a stranger…" maxlength="500" autocomplete="off" enterkeyhint="send"><button class="b" id="ssend">Send</button></div>
+<div class="acts"><button class="b alt" id="next">Find someone</button><button class="b alt" id="add" disabled>Add friend</button><button class="b alt" id="xo">🎮 Games</button></div>
+<div class="row"><input id="sin" placeholder="Waiting for a stranger…" maxlength="500" autocomplete="off" enterkeyhint="send"><button class="b alt" id="mic">🎤</button><button class="b" id="ssend">Send</button></div>
 </section>
 <section class="panel" id="p-f">
 <div class="chips" id="chips"></div><div class="game" id="gf" hidden></div>
 <div class="msgs" id="fmsgs"><div class="empty">No friends yet. Add someone from a stranger chat.</div></div>
-<div class="row"><button class="b alt" id="fxo">🎮</button><input id="fin" placeholder="Message your friend…" maxlength="500" disabled><button class="b" id="fsend" disabled>Send</button></div>
+<div class="row"><button class="b alt" id="fxo">🎮</button><input id="fin" placeholder="Message your friend…" maxlength="500" disabled><button class="b alt" id="fmic">🎤</button><button class="b" id="fsend" disabled>Send</button></div>
 </section>
 </main></div>
 <script>
@@ -137,7 +140,7 @@ function renderChips(){const c=$("chips");c.innerHTML="";friends.forEach(f=>{con
 if(unread[f.by])b.append(el("span","badge",unread[f.by]));b.onclick=()=>{cur=f.by;unread[f.by]=0;renderChips();renderF()};c.append(b)});
 const u=Object.values(unread).reduce((a,b)=>a+b,0);$("unread").hidden=!u;$("unread").textContent=u;$("fin").disabled=$("fsend").disabled=!cur}
 function renderF(){gview("f");const b=$("fmsgs");b.innerHTML="";if(!cur){b.append(el("div","empty","No friends yet. Add someone from a stranger chat."));return}
-const f=friends.find(x=>x.by===cur);if(!f)return;(fm[cur]||[]).forEach(m=>add(b,m.w,m.t,m.mid));if(!online(cur))add(b,"sys",`${f.nick} is offline. Messages reach friends only while they are online.`)}
+const f=friends.find(x=>x.by===cur);if(!f)return;(fm[cur]||[]).forEach(m=>m.v?addV(b,m.w,m.v,m.mid):add(b,m.w,m.t,m.mid));if(!online(cur))add(b,"sys",`${f.nick} is offline. Messages reach friends only while they are online.`)}
 function sendF(){const v=$("fin").value.trim();if(!v||!cur)return;const mid=nid();send("fdm",{toBy:cur,by:myId,nick,text:v,mid});(fm[cur]=fm[cur]||[]).push({w:"me",t:v,mid});$("fin").value="";renderF()}
 $("fsend").onclick=sendF;$("fin").onkeydown=e=>{if(e.key==="Enter")sendF()};
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
@@ -145,24 +148,58 @@ $("p-s").classList.toggle("on",b.dataset.t==="s");$("p-f").classList.toggle("on"
 const GS={},LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 const gk=sc=>sc==="s"?"s":cur;
 const gname=sc=>sc==="s"?pnick:((friends.find(f=>f.by===cur)||{}).nick||"Friend");
-function gsend(sc,a,i){if(sc==="s"){if(pid&&state==="chat")send("xo",{to:pid,a,i})}else if(cur)send("xo",{toBy:cur,by:myId,a,i})}
+function gsend(sc,a,i,g){if(sc==="s"){if(pid&&state==="chat")send("xo",{to:pid,a,i,g})}else if(cur)send("xo",{toBy:cur,by:myId,a,i,g})}
 function win(b){for(const[x,y,z]of LINES)if(b[x]&&b[x]===b[y]&&b[x]===b[z])return b[x];return b.every(Boolean)?"draw":null}
 function check(g){const w=win(g.b);if(w){g.st="done";g.msg=w==="draw"?"It is a draw 🤝":w===g.me?"You won! 🎉":"You lost 😅"}}
-function invite(sc){if(sc==="s"&&state!=="chat")return add($("smsgs"),"sys","Connect to a stranger first.");
+function invite(sc,type="xo"){if(sc==="s"&&state!=="chat")return add($("smsgs"),"sys","Connect to a stranger first.");
 if(sc==="f"){if(!cur)return;if(!online(cur))return add($("fmsgs"),"sys","Your friend is offline.")}
-const k=gk(sc),g=GS[k];if(g&&g.st==="play")return;GS[k]={b:Array(9).fill(""),t:"X",me:"X",st:"inv_out"};gsend(sc,"inv");gview(sc)}
+const k=gk(sc),g=GS[k];if(g&&g.st==="play")return;GS[k]=mk(type,"inv_out","X");gsend(sc,"inv",null,type);gview(sc)}
 function move(sc,i){const g=GS[gk(sc)];if(!g||g.st!=="play"||g.t!==g.me||g.b[i])return;g.b[i]=g.me;g.t=g.me==="X"?"O":"X";gsend(sc,"mv",i);check(g);gview(sc)}
 function gview(sc){const box=$(sc==="s"?"gs":"gf"),k=gk(sc),g=GS[k];box.innerHTML="";if(!g){box.hidden=true;return}box.hidden=false;
-const nm=gname(sc),t=el("div"),acts=el("div","g-act");
+const nm=gname(sc),gn=g.type==="rps"?"Rock Paper Scissors":"XOX",t=el("div"),acts=el("div","g-act");
 const btn=(x,alt,fn)=>{const b=el("button","b"+(alt?" alt":""),x);b.onclick=fn;return b};
 const quit=()=>{gsend(sc,"close");delete GS[k];gview(sc)};
-if(g.st==="inv_out"){t.textContent=`Waiting for ${nm} to accept XOX…`;acts.append(btn("Cancel",1,quit));box.append(t,acts);return}
-if(g.st==="inv_in"){t.textContent=`${nm} wants to play XOX 🎮`;acts.append(btn("Accept",0,()=>{g.st="play";gsend(sc,"acc");gview(sc)}),btn("No",1,quit));box.append(t,acts);return}
+if(g.st==="inv_out"){t.textContent=`Waiting for ${nm} to accept ${gn}…`;acts.append(btn("Cancel",1,quit));box.append(t,acts);return}
+if(g.st==="inv_in"){t.textContent=`${nm} wants to play ${gn} 🎮`;acts.append(btn("Accept",0,()=>{g.st="play";gsend(sc,"acc");gview(sc)}),btn("No",1,quit));box.append(t,acts);return}
+if(g.type==="rps"){const E={r:"🪨",p:"📄",s:"✂️"};
+t.textContent=g.res?`${E[g.pick]} vs ${E[g.opick]} · `+(g.res==="draw"?"Draw 🤝":g.res==="win"?"You win! 🎉":"You lose 😅"):g.pick?`Waiting for ${nm}…`:"Rock, paper or scissors?";
+const gr=el("div","grid");["r","p","s"].forEach(x=>{const c=el("button","cell",E[x]);c.disabled=!!g.pick;if(g.pick===x)c.style.borderColor="var(--brand)";c.onclick=()=>{if(g.pick)return;g.pick=x;gsend(sc,"pk",x);rcheck(g,sc,k);gview(sc)};gr.append(c)});
+acts.append(btn("Quit",1,quit));box.append(t,el("div",null,`You ${g.sc[0]} – ${g.sc[1]} ${nm}`),gr,acts);return}
 t.textContent=g.st==="done"?g.msg:(g.t===g.me?`Your turn (${g.me})`:`${nm}'s turn`);
 const gr=el("div","grid");g.b.forEach((v,i)=>{const c=el("button","cell "+v,v);c.disabled=!(g.st==="play"&&g.t===g.me&&!v);c.onclick=()=>move(sc,i);gr.append(c)});
-if(g.st==="done")acts.append(btn("Rematch",0,()=>{delete GS[k];invite(sc)}),btn("Close",1,quit));else acts.append(btn("Quit",1,quit));
+if(g.st==="done")acts.append(btn("Rematch",0,()=>{delete GS[k];invite(sc,"xo")}),btn("Close",1,quit));else acts.append(btn("Quit",1,quit));
 box.append(t,gr,acts)}
-$("xo").onclick=()=>invite("s");$("fxo").onclick=()=>invite("f");
+const mk=(type,st,me)=>type==="rps"?{type,st,me,pick:null,opick:null,sc:[0,0],nq:null,res:""}:{type:"xo",b:Array(9).fill(""),t:"X",me,st};
+function rcheck(g,sc,k){if(!(g.pick&&g.opick&&!g.res))return;const B={r:"s",s:"p",p:"r"};g.res=g.pick===g.opick?"draw":B[g.pick]===g.opick?"win":"lose";
+if(g.res==="win")g.sc[0]++;if(g.res==="lose")g.sc[1]++;
+setTimeout(()=>{if(GS[k]!==g)return;g.pick=null;g.opick=g.nq;g.nq=null;g.res="";if(sc==="s"||cur===k)gview(sc)},2600)}
+function gmenu(btnEl,sc){closePick();const d=el("div");d.id="pick";[["XOX","xo"],["Rock Paper Scissors","rps"]].forEach(([n,t])=>{const b=el("button",null,n);b.style.cssText="font-size:14px;padding:6px 10px;border-radius:14px";b.onclick=e=>{e.stopPropagation();closePick();invite(sc,t)};d.append(b)});
+document.body.append(d);const r=btnEl.getBoundingClientRect(),w=d.offsetWidth;d.style.top=Math.max(8,r.top-52)+"px";d.style.left=Math.min(Math.max(8,r.left),innerWidth-w-8)+"px"}
+$("xo").onclick=e=>gmenu(e.currentTarget,"s");$("fxo").onclick=e=>gmenu(e.currentTarget,"f");
+// ---- voice messages ----
+const vsys=(sc,t)=>add($(sc==="s"?"smsgs":"fmsgs"),"sys",t);
+function addV(box,cls,url,mid){const m=el("div","m "+cls),a=el("audio");a.controls=true;a.preload="metadata";a.src=url;m.append(a);
+if(mid){m.dataset.mid=mid;m.dataset.scope=box.id==="fmsgs"?"f":"s";bind(m);paint(m)}box.appendChild(m);box.scrollTop=box.scrollHeight}
+function vurl(d){if(!okId(d.mid)||typeof d.data!=="string"||d.data.length>220000||!/^[A-Za-z0-9+/=]+$/.test(d.data))return null;
+const mime=["audio/webm","audio/mp4","audio/ogg"].includes(d.mime)?d.mime:"audio/webm";
+try{const b=atob(d.data),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return URL.createObjectURL(new Blob([u],{type:mime}))}catch(e){return null}}
+function setMic(on){["mic","fmic"].forEach(i=>{const b=$(i);b.textContent=on?"⏹":"🎤";b.classList.toggle("rec",on)})}
+function sendVoice(sc,blob,type){if(blob.size>150000)return vsys(sc,"Voice note too long.");const fr=new FileReader();
+fr.onload=()=>{const data=String(fr.result).split(",")[1]||"",mid=nid(),url=URL.createObjectURL(blob);
+if(sc==="s"){if(!(pid&&state==="chat"))return;send("vm",{to:pid,mid,mime:type,data});addV($("smsgs"),"me",url,mid)}
+else{if(!cur)return;send("fvm",{toBy:cur,by:myId,mid,mime:type,data});(fm[cur]=fm[cur]||[]).push({w:"me",v:url,mid});renderF()}};fr.readAsDataURL(blob)}
+let rec=null,chunks=[],rt=null,rsc=null,rstart=0;
+async function toggleRec(sc){if(rec){rec.stop();return}
+if(sc==="s"&&state!=="chat")return vsys("s","Connect to a stranger first.");if(sc==="f"&&!cur)return;
+if(!navigator.mediaDevices||!window.MediaRecorder)return vsys(sc,"Voice notes are not supported in this browser.");
+let st;try{st=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){return vsys(sc,"Microphone permission was denied.")}
+const mt=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg;codecs=opus"].find(m=>MediaRecorder.isTypeSupported(m))||"";
+const r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:16000}:{audioBitsPerSecond:16000});rec=r;rsc=sc;chunks=[];rstart=Date.now();
+r.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+r.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearTimeout(rt);const type=(r.mimeType||mt||"audio/webm").split(";")[0],dur=Date.now()-rstart;rec=null;setMic(false);
+if(dur<700)return;sendVoice(rsc,new Blob(chunks,{type}),type)};
+r.start();setMic(true);rt=setTimeout(()=>{if(rec)rec.stop()},30000)}
+$("mic").onclick=()=>toggleRec("s");$("fmic").onclick=()=>toggleRec("f");
 function boot(){
 if(SUPABASE_URL.startsWith("PASTE")){add($("smsgs"),"sys","Setup needed: add your Supabase URL and anon key in index.html.");return}
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -175,12 +212,16 @@ ch.on("broadcast",{event:"fdm"},({payload:d})=>{if(d.toBy!==myId||!d.by||typeof 
 (fm[d.by]=fm[d.by]||[]).push({w:"them",t:d.text.slice(0,500),mid:okId(d.mid)});if($("p-f").classList.contains("on")&&cur===d.by)renderF();else unread[d.by]=(unread[d.by]||0)+1;renderChips()});
 ch.on("broadcast",{event:"rx"},({payload:d})=>{const k=okId(d.mid);if(!k||d.to!==tab||d.from!==pid)return;(R[k]=R[k]||{}).them=EM.includes(d.e)?d.e:null;refresh(k)});
 ch.on("broadcast",{event:"frx"},({payload:d})=>{const k=okId(d.mid);if(!k||d.toBy!==myId||!friends.some(f=>f.by===d.by))return;(R[k]=R[k]||{}).them=EM.includes(d.e)?d.e:null;refresh(k)});
+ch.on("broadcast",{event:"vm"},({payload:d})=>{if(d.to!==tab||d.from!==pid||state!=="chat")return;const u=vurl(d);if(u)addV($("smsgs"),"them",u,okId(d.mid))});
+ch.on("broadcast",{event:"fvm"},({payload:d})=>{if(d.toBy!==myId||!d.by||!friends.some(f=>f.by===d.by))return;const u=vurl(d);if(!u)return;
+(fm[d.by]=fm[d.by]||[]).push({w:"them",v:u,mid:okId(d.mid)});if($("p-f").classList.contains("on")&&cur===d.by)renderF();else unread[d.by]=(unread[d.by]||0)+1;renderChips()});
 ch.on("broadcast",{event:"xo"},({payload:d})=>{let sc=null;if(d.to===tab&&d.from===pid&&state==="chat")sc="s";else if(d.toBy===myId&&friends.some(f=>f.by===d.by))sc="f";if(!sc)return;
 const k=sc==="s"?"s":d.by,g=GS[k],a=d.a,i=d.i;
-if(a==="inv"){GS[k]={b:Array(9).fill(""),t:"X",me:"O",st:"inv_in"};if(sc==="s")add($("smsgs"),"sys","Invited you to play XOX 🎮");else if(!($("p-f").classList.contains("on")&&cur===k)){unread[k]=(unread[k]||0)+1;renderChips()}}
+if(a==="inv"){GS[k]=mk(d.g==="rps"?"rps":"xo","inv_in","O");if(sc==="s")add($("smsgs"),"sys","Invited you to a game 🎮");else if(!($("p-f").classList.contains("on")&&cur===k)){unread[k]=(unread[k]||0)+1;renderChips()}}
 else if(a==="acc"&&g&&g.st==="inv_out"){g.st="play"}
 else if((a==="dec"||a==="cancel"||a==="close")&&g){delete GS[k]}
-else if(a==="mv"&&g&&g.st==="play"&&g.t!==g.me&&Number.isInteger(i)&&i>=0&&i<9&&!g.b[i]){g.b[i]=g.me==="X"?"O":"X";g.t=g.me;check(g)}
+else if(a==="mv"&&g&&g.type==="xo"&&g.st==="play"&&g.t!==g.me&&Number.isInteger(i)&&i>=0&&i<9&&!g.b[i]){g.b[i]=g.me==="X"?"O":"X";g.t=g.me;check(g)}
+else if(a==="pk"&&g&&g.type==="rps"&&g.st==="play"&&["r","p","s"].includes(i)){if(g.opick)g.nq=i;else g.opick=i;rcheck(g,sc,k)}
 else return;
 if(sc==="s"||cur===k)gview(sc)});
 ch.subscribe(s=>{if(s==="SUBSCRIBED"){live=true;start()}else if(["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(s)){live=false;state="idle";status();add($("smsgs"),"sys","Cannot reach the chat server. Check your Supabase URL and key.")}})}
