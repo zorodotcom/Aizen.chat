@@ -45,6 +45,11 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 .m.me .rx{right:8px}.m.them .rx{left:8px}
 #pick{position:fixed;z-index:9;display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:26px;padding:5px 8px;box-shadow:0 6px 24px #0003}
 #pick button{border:0;background:none;font-size:24px;cursor:pointer;padding:2px 3px;border-radius:50%}
+.game{padding:10px 12px;border-bottom:1px solid var(--line);text-align:center;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(3,56px);gap:6px;justify-content:center;margin:8px 0}
+.cell{height:56px;font:700 26px inherit;font-family:inherit;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);padding:0}
+.cell:disabled{opacity:1}.cell.X{color:var(--brand)}.cell.O{color:var(--brand2)}
+.g-act{display:flex;gap:8px;justify-content:center}.g-act .b{padding:7px 14px}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script></head><body>
 <div id="gate"><div class="gc">
 <h1><span style="color:var(--brand)">Aizen</span><span style="color:var(--brand2)">.app</span></h1>
@@ -60,15 +65,15 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 <main>
 <section class="panel on" id="p-s">
 <div class="bar"><span class="dot" id="sdot"></span><span id="stat">Not connected</span></div>
-<div id="reqs"></div>
+<div id="reqs"></div><div class="game" id="gs" hidden></div>
 <div class="msgs" id="smsgs"></div>
-<div class="acts"><button class="b alt" id="next">Find someone</button><button class="b alt" id="add" disabled>Add friend</button></div>
+<div class="acts"><button class="b alt" id="next">Find someone</button><button class="b alt" id="add" disabled>Add friend</button><button class="b alt" id="xo">🎮 XOX</button></div>
 <div class="row"><input id="sin" placeholder="Waiting for a stranger…" maxlength="500" autocomplete="off" enterkeyhint="send"><button class="b" id="ssend">Send</button></div>
 </section>
 <section class="panel" id="p-f">
-<div class="chips" id="chips"></div>
+<div class="chips" id="chips"></div><div class="game" id="gf" hidden></div>
 <div class="msgs" id="fmsgs"><div class="empty">No friends yet. Add someone from a stranger chat.</div></div>
-<div class="row"><input id="fin" placeholder="Message your friend…" maxlength="500" disabled><button class="b" id="fsend" disabled>Send</button></div>
+<div class="row"><button class="b alt" id="fxo">🎮</button><input id="fin" placeholder="Message your friend…" maxlength="500" disabled><button class="b" id="fsend" disabled>Send</button></div>
 </section>
 </main></div>
 <script>
@@ -107,11 +112,11 @@ function add(box,cls,text,mid){const m=el("div","m "+cls,text);if(mid&&cls!=="sy
 function status(){$("sdot").className="dot"+(state==="chat"?" on":state==="wait"?" wait":"");
 $("stat").textContent=state==="chat"?`${pnick} · ${pdist||"Kerala"}`:state==="wait"?`Searching… ${Math.max(peers.length-1,0)} other${peers.length===2?"":"s"} online`:live?"Tap Find someone":"Not connected";
 const c=state==="chat";$("sin").placeholder=c?"Type a message…":"Waiting for a stranger…";$("add").disabled=!c;$("next").textContent=state==="idle"?"Find someone":"Next"}
-function start(){if(!live){add($("smsgs"),"sys","Not connected yet. Check the Supabase URL and key in index.html.");return}state="wait";pid=null;mutual=false;clearTimeout(pt);setP({nick,dist,state:"wait",partner:null,avoid,by:myId});status();tick()}
+function start(){if(!live){add($("smsgs"),"sys","Not connected yet. Check the Supabase URL and key in index.html.");return}state="wait";delete GS.s;gview("s");pid=null;mutual=false;clearTimeout(pt);setP({nick,dist,state:"wait",partner:null,avoid,by:myId});status();tick()}
 function connect(o){pid=o.peer;pnick=String(o.presence.nick||"Stranger").slice(0,18);pdist=String(o.presence.dist||"");state="chat";mutual=false;
-$("smsgs").innerHTML="";add($("smsgs"),"sys",`You are chatting with ${pnick}. Say ഹായ്! 👋`);add($("smsgs"),"sys","Tip: double-tap a message for ❤️, hold to react.");setP({state:"chat",partner:o.peer});status();
+delete GS.s;gview("s");$("smsgs").innerHTML="";add($("smsgs"),"sys",`You are chatting with ${pnick}. Say ഹായ്! 👋`);add($("smsgs"),"sys","Tip: double-tap a message for ❤️, hold to react.");setP({state:"chat",partner:o.peer});status();
 clearTimeout(pt);pt=setTimeout(()=>{if(state==="chat"&&!mutual){avoid=pid;start()}},6000)}
-function end(msg){if(state!=="chat")return;add($("smsgs"),"sys",msg);avoid=pid;pid=null;state="idle";setP({state:"idle",partner:null});status()}
+function end(msg){if(state!=="chat")return;delete GS.s;gview("s");add($("smsgs"),"sys",msg);avoid=pid;pid=null;state="idle";setP({state:"idle",partner:null});status()}
 function tick(){
 if(state==="wait"){const w=peers.filter(p=>p.presence.state==="wait").sort((a,b)=>a.peer<b.peer?-1:1);const used=new Set();
 for(const a of w){if(used.has(a.peer))continue;const b=w.find(x=>x.peer!==a.peer&&!used.has(x.peer)&&a.presence.avoid!==x.peer&&x.presence.avoid!==a.peer);
@@ -131,12 +136,33 @@ function online(by){return peers.some(p=>p.presence.by===by&&p.peer!==tab)}
 function renderChips(){const c=$("chips");c.innerHTML="";friends.forEach(f=>{const b=el("button","chip"+(cur===f.by?" on":""));b.append(el("span","dot"+(online(f.by)?" on":"")),el("span",null,f.nick));
 if(unread[f.by])b.append(el("span","badge",unread[f.by]));b.onclick=()=>{cur=f.by;unread[f.by]=0;renderChips();renderF()};c.append(b)});
 const u=Object.values(unread).reduce((a,b)=>a+b,0);$("unread").hidden=!u;$("unread").textContent=u;$("fin").disabled=$("fsend").disabled=!cur}
-function renderF(){const b=$("fmsgs");b.innerHTML="";if(!cur){b.append(el("div","empty","No friends yet. Add someone from a stranger chat."));return}
+function renderF(){gview("f");const b=$("fmsgs");b.innerHTML="";if(!cur){b.append(el("div","empty","No friends yet. Add someone from a stranger chat."));return}
 const f=friends.find(x=>x.by===cur);if(!f)return;(fm[cur]||[]).forEach(m=>add(b,m.w,m.t,m.mid));if(!online(cur))add(b,"sys",`${f.nick} is offline. Messages reach friends only while they are online.`)}
 function sendF(){const v=$("fin").value.trim();if(!v||!cur)return;const mid=nid();send("fdm",{toBy:cur,by:myId,nick,text:v,mid});(fm[cur]=fm[cur]||[]).push({w:"me",t:v,mid});$("fin").value="";renderF()}
 $("fsend").onclick=sendF;$("fin").onkeydown=e=>{if(e.key==="Enter")sendF()};
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
 $("p-s").classList.toggle("on",b.dataset.t==="s");$("p-f").classList.toggle("on",b.dataset.t==="f");if(b.dataset.t==="f"&&cur){unread[cur]=0;renderChips();renderF()}});
+const GS={},LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const gk=sc=>sc==="s"?"s":cur;
+const gname=sc=>sc==="s"?pnick:((friends.find(f=>f.by===cur)||{}).nick||"Friend");
+function gsend(sc,a,i){if(sc==="s"){if(pid&&state==="chat")send("xo",{to:pid,a,i})}else if(cur)send("xo",{toBy:cur,by:myId,a,i})}
+function win(b){for(const[x,y,z]of LINES)if(b[x]&&b[x]===b[y]&&b[x]===b[z])return b[x];return b.every(Boolean)?"draw":null}
+function check(g){const w=win(g.b);if(w){g.st="done";g.msg=w==="draw"?"It is a draw 🤝":w===g.me?"You won! 🎉":"You lost 😅"}}
+function invite(sc){if(sc==="s"&&state!=="chat")return add($("smsgs"),"sys","Connect to a stranger first.");
+if(sc==="f"){if(!cur)return;if(!online(cur))return add($("fmsgs"),"sys","Your friend is offline.")}
+const k=gk(sc),g=GS[k];if(g&&g.st==="play")return;GS[k]={b:Array(9).fill(""),t:"X",me:"X",st:"inv_out"};gsend(sc,"inv");gview(sc)}
+function move(sc,i){const g=GS[gk(sc)];if(!g||g.st!=="play"||g.t!==g.me||g.b[i])return;g.b[i]=g.me;g.t=g.me==="X"?"O":"X";gsend(sc,"mv",i);check(g);gview(sc)}
+function gview(sc){const box=$(sc==="s"?"gs":"gf"),k=gk(sc),g=GS[k];box.innerHTML="";if(!g){box.hidden=true;return}box.hidden=false;
+const nm=gname(sc),t=el("div"),acts=el("div","g-act");
+const btn=(x,alt,fn)=>{const b=el("button","b"+(alt?" alt":""),x);b.onclick=fn;return b};
+const quit=()=>{gsend(sc,"close");delete GS[k];gview(sc)};
+if(g.st==="inv_out"){t.textContent=`Waiting for ${nm} to accept XOX…`;acts.append(btn("Cancel",1,quit));box.append(t,acts);return}
+if(g.st==="inv_in"){t.textContent=`${nm} wants to play XOX 🎮`;acts.append(btn("Accept",0,()=>{g.st="play";gsend(sc,"acc");gview(sc)}),btn("No",1,quit));box.append(t,acts);return}
+t.textContent=g.st==="done"?g.msg:(g.t===g.me?`Your turn (${g.me})`:`${nm}'s turn`);
+const gr=el("div","grid");g.b.forEach((v,i)=>{const c=el("button","cell "+v,v);c.disabled=!(g.st==="play"&&g.t===g.me&&!v);c.onclick=()=>move(sc,i);gr.append(c)});
+if(g.st==="done")acts.append(btn("Rematch",0,()=>{delete GS[k];invite(sc)}),btn("Close",1,quit));else acts.append(btn("Quit",1,quit));
+box.append(t,gr,acts)}
+$("xo").onclick=()=>invite("s");$("fxo").onclick=()=>invite("f");
 function boot(){
 if(SUPABASE_URL.startsWith("PASTE")){add($("smsgs"),"sys","Setup needed: add your Supabase URL and anon key in index.html.");return}
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -149,6 +175,14 @@ ch.on("broadcast",{event:"fdm"},({payload:d})=>{if(d.toBy!==myId||!d.by||typeof 
 (fm[d.by]=fm[d.by]||[]).push({w:"them",t:d.text.slice(0,500),mid:okId(d.mid)});if($("p-f").classList.contains("on")&&cur===d.by)renderF();else unread[d.by]=(unread[d.by]||0)+1;renderChips()});
 ch.on("broadcast",{event:"rx"},({payload:d})=>{const k=okId(d.mid);if(!k||d.to!==tab||d.from!==pid)return;(R[k]=R[k]||{}).them=EM.includes(d.e)?d.e:null;refresh(k)});
 ch.on("broadcast",{event:"frx"},({payload:d})=>{const k=okId(d.mid);if(!k||d.toBy!==myId||!friends.some(f=>f.by===d.by))return;(R[k]=R[k]||{}).them=EM.includes(d.e)?d.e:null;refresh(k)});
+ch.on("broadcast",{event:"xo"},({payload:d})=>{let sc=null;if(d.to===tab&&d.from===pid&&state==="chat")sc="s";else if(d.toBy===myId&&friends.some(f=>f.by===d.by))sc="f";if(!sc)return;
+const k=sc==="s"?"s":d.by,g=GS[k],a=d.a,i=d.i;
+if(a==="inv"){GS[k]={b:Array(9).fill(""),t:"X",me:"O",st:"inv_in"};if(sc==="s")add($("smsgs"),"sys","Invited you to play XOX 🎮");else if(!($("p-f").classList.contains("on")&&cur===k)){unread[k]=(unread[k]||0)+1;renderChips()}}
+else if(a==="acc"&&g&&g.st==="inv_out"){g.st="play"}
+else if((a==="dec"||a==="cancel"||a==="close")&&g){delete GS[k]}
+else if(a==="mv"&&g&&g.st==="play"&&g.t!==g.me&&Number.isInteger(i)&&i>=0&&i<9&&!g.b[i]){g.b[i]=g.me==="X"?"O":"X";g.t=g.me;check(g)}
+else return;
+if(sc==="s"||cur===k)gview(sc)});
 ch.subscribe(s=>{if(s==="SUBSCRIBED"){live=true;start()}else if(["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(s)){live=false;state="idle";status();add($("smsgs"),"sys","Cannot reach the chat server. Check your Supabase URL and key.")}})}
 $("go").onclick=()=>{nick=$("nick").value.trim()||"Mallu";dist=$("dist").value;ls.set("kc_nick",nick);ls.set("kc_dist",dist);$("gate").remove();
 if(friends.length)cur=friends[0].by;renderChips();renderF();boot()};
