@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Aizen Chat – talk to someone new</title>
+<title>Aizen.app – talk to someone new</title>
 <style>
 :root{--bg:#f4f7f5;--card:#fff;--ink:#14231c;--mute:#6b7d74;--line:#dde6e1;--brand:#0f8a5f;--brand2:#e9a100;--me:#0f8a5f;--meink:#fff;--them:#eaf0ed;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1511;--card:#16211c;--ink:#e8f1ec;--mute:#8aa095;--line:#26362f;--them:#223029;color-scheme:dark}}
@@ -45,9 +45,9 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 .m.me .rx{right:8px}.m.them .rx{left:8px}
 #pick{position:fixed;z-index:9;display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:26px;padding:5px 8px;box-shadow:0 6px 24px #0003}
 #pick button{border:0;background:none;font-size:24px;cursor:pointer;padding:2px 3px;border-radius:50%}
-</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script></head><body>
+</style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script></head><body>
 <div id="gate"><div class="gc">
-<h1><span style="color:var(--brand)">Aizen</span> Chat</h1>
+<h1><span style="color:var(--brand)">Aizen</span><span style="color:var(--brand2)">.app</span></h1>
 <p>Meet someone new from Kerala (and beyond). Say ഹായ്, make friends, keep chatting.</p>
 <input id="nick" maxlength="18" placeholder="Your nickname">
 <select id="dist"></select>
@@ -55,7 +55,7 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 <button class="b" id="go">Start chatting</button>
 </div></div>
 <div id="app">
-<header><div class="logo"><b>Aizen</b> <i>Chat</i></div><div class="sp"></div><div class="pill" id="online"></div></header>
+<header><div class="logo"><b>Aizen</b><i>.app</i></div><div class="sp"></div><div class="pill" id="online"></div></header>
 <div class="tabs"><button class="on" data-t="s">Stranger chat</button><button data-t="f">Friends<span class="badge" id="unread" hidden></span></button></div>
 <main>
 <section class="panel on" id="p-s">
@@ -73,7 +73,7 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 </main></div>
 <script>
 // ====== 1) PASTE YOUR SUPABASE DETAILS HERE (Project Settings > API) ======
-const SUPABASE_URL="PASTE_YOUR_SUPABASE_URL",SUPABASE_KEY="PASTE_YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL="https://ctmnwgvnixgwjdkeofbj.supabase.co",SUPABASE_KEY="sb_publishable_ufy9T32KSbTloIPcVRZewg_ftct2r5h";
 // ==========================================================================
 const $=id=>document.getElementById(id);
 const D=["Anywhere","Thiruvananthapuram","Kollam","Pathanamthitta","Alappuzha","Kottayam","Idukki","Ernakulam","Thrissur","Palakkad","Malappuram","Kozhikode","Wayanad","Kannur","Kasaragod"];
@@ -82,7 +82,7 @@ const ls={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}
 $("nick").value=ls.get("kc_nick","");$("dist").value=ls.get("kc_dist","Anywhere");
 const tab=Math.random().toString(36).slice(2,10);
 let myId=ls.get("kc_uid",null);if(!myId){myId=Math.random().toString(36).slice(2)+Date.now().toString(36);ls.set("kc_uid",myId)}
-let ch=null,nick="",dist="",pdist="",peers=[],P={},state="idle",pid=null,pnick="",mutual=false,avoid=null,pt=null,incoming=[],cur=null;
+let live=false,ch=null,nick="",dist="",pdist="",peers=[],P={},state="idle",pid=null,pnick="",mutual=false,avoid=null,pt=null,incoming=[],cur=null;
 let friends=ls.get("kc_friends",[]),fm={},unread={};
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 const setP=p=>{P={...P,...p};if(ch)try{ch.track(P)}catch(e){}};
@@ -105,9 +105,9 @@ m.onpointerup=()=>{if(t===null)return;stop();const n=Date.now();if(n-last<320){l
 m.onpointerleave=m.onpointercancel=stop;m.oncontextmenu=e=>{e.preventDefault();pick(m)}}
 function add(box,cls,text,mid){const m=el("div","m "+cls,text);if(mid&&cls!=="sys"){m.dataset.mid=mid;m.dataset.scope=box.id==="fmsgs"?"f":"s";bind(m);paint(m)}box.appendChild(m);box.scrollTop=box.scrollHeight}
 function status(){$("sdot").className="dot"+(state==="chat"?" on":state==="wait"?" wait":"");
-$("stat").textContent=state==="chat"?`${pnick} · ${pdist||"Kerala"}`:state==="wait"?"Searching for someone…":"Not connected";
+$("stat").textContent=state==="chat"?`${pnick} · ${pdist||"Kerala"}`:state==="wait"?`Searching… ${Math.max(peers.length-1,0)} other${peers.length===2?"":"s"} online`:live?"Tap Find someone":"Not connected";
 const c=state==="chat";$("sin").disabled=$("ssend").disabled=!c;$("add").disabled=!c;$("next").textContent=state==="idle"?"Find someone":"Next"}
-function start(){state="wait";pid=null;mutual=false;clearTimeout(pt);setP({nick,dist,state:"wait",partner:null,avoid,by:myId});status();tick()}
+function start(){if(!live){add($("smsgs"),"sys","Not connected yet. Check the Supabase URL and key in index.html.");return}state="wait";pid=null;mutual=false;clearTimeout(pt);setP({nick,dist,state:"wait",partner:null,avoid,by:myId});status();tick()}
 function connect(o){pid=o.peer;pnick=String(o.presence.nick||"Stranger").slice(0,18);pdist=String(o.presence.dist||"");state="chat";mutual=false;
 $("smsgs").innerHTML="";add($("smsgs"),"sys",`You are chatting with ${pnick}. Say ഹായ്! 👋`);add($("smsgs"),"sys","Tip: double-tap a message for ❤️, hold to react.");setP({state:"chat",partner:o.peer});status();
 clearTimeout(pt);pt=setTimeout(()=>{if(state==="chat"&&!mutual){avoid=pid;start()}},6000)}
@@ -118,7 +118,7 @@ for(const a of w){if(used.has(a.peer))continue;const b=w.find(x=>x.peer!==a.peer
 if(!b)continue;used.add(a.peer);used.add(b.peer);if(a.peer===tab)return connect(b);if(b.peer===tab)return connect(a)}}
 if(state==="chat"){const p=peers.find(x=>x.peer===pid);if(!p)return end("Stranger left the chat.");
 if(p.presence.partner===tab)mutual=true;else if(mutual)end("Stranger moved on.")}
-$("online").textContent=peers.length>1?`${peers.length} online`:"";renderChips()}
+$("online").textContent=live?`● ${Math.max(peers.length,1)} online`:"";status();renderChips()}
 function sendS(){const v=$("sin").value.trim();if(!v||state!=="chat")return;const mid=nid();send("dm",{to:pid,text:v,mid});add($("smsgs"),"me",v,mid);$("sin").value=""}
 $("ssend").onclick=sendS;$("sin").onkeydown=e=>{if(e.key==="Enter")sendS()};
 $("next").onclick=()=>{if(state==="chat")avoid=pid;start()};
@@ -149,7 +149,7 @@ ch.on("broadcast",{event:"fdm"},({payload:d})=>{if(d.toBy!==myId||!d.by||typeof 
 (fm[d.by]=fm[d.by]||[]).push({w:"them",t:d.text.slice(0,500),mid:okId(d.mid)});if($("p-f").classList.contains("on")&&cur===d.by)renderF();else unread[d.by]=(unread[d.by]||0)+1;renderChips()});
 ch.on("broadcast",{event:"rx"},({payload:d})=>{const k=okId(d.mid);if(!k||d.to!==tab||d.from!==pid)return;(R[k]=R[k]||{}).them=EM.includes(d.e)?d.e:null;refresh(k)});
 ch.on("broadcast",{event:"frx"},({payload:d})=>{const k=okId(d.mid);if(!k||d.toBy!==myId||!friends.some(f=>f.by===d.by))return;(R[k]=R[k]||{}).them=EM.includes(d.e)?d.e:null;refresh(k)});
-ch.subscribe(s=>{if(s==="SUBSCRIBED")start()})}
+ch.subscribe(s=>{if(s==="SUBSCRIBED"){live=true;start()}else if(["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(s)){live=false;state="idle";status();add($("smsgs"),"sys","Cannot reach the chat server. Check your Supabase URL and key.")}})}
 $("go").onclick=()=>{nick=$("nick").value.trim()||"Mallu";dist=$("dist").value;ls.set("kc_nick",nick);ls.set("kc_dist",dist);$("gate").remove();
 if(friends.length)cur=friends[0].by;renderChips();renderF();boot()};
 status();
