@@ -8,7 +8,7 @@
 :root[data-theme="dark"]{--bg:#0d1511;--card:#16211c;--ink:#e8f1ec;--mute:#8aa095;--line:#26362f;--them:#223029;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
 *{box-sizing:border-box}body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-#app{max-width:560px;height:100%;margin:auto;display:flex;flex-direction:column;background:var(--card);border-inline:1px solid var(--line)}
+#app{max-width:560px;height:100%;height:100dvh;margin:auto;display:flex;flex-direction:column;background:var(--card);border-inline:1px solid var(--line)}
 header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
 .logo{font-weight:800;font-size:18px}.logo b{color:var(--brand)}.logo i{color:var(--brand2);font-style:normal}
 .sp{flex:1}.pill{font-size:12px;color:var(--mute)}
@@ -63,7 +63,7 @@ button.b.alt{background:var(--them);color:var(--ink)}button.b:disabled{opacity:.
 <div id="reqs"></div>
 <div class="msgs" id="smsgs"></div>
 <div class="acts"><button class="b alt" id="next">Find someone</button><button class="b alt" id="add" disabled>Add friend</button></div>
-<div class="row"><input id="sin" placeholder="Type a message…" maxlength="500" disabled><button class="b" id="ssend" disabled>Send</button></div>
+<div class="row"><input id="sin" placeholder="Waiting for a stranger…" maxlength="500" autocomplete="off" enterkeyhint="send"><button class="b" id="ssend">Send</button></div>
 </section>
 <section class="panel" id="p-f">
 <div class="chips" id="chips"></div>
@@ -106,7 +106,7 @@ m.onpointerleave=m.onpointercancel=stop;m.oncontextmenu=e=>{e.preventDefault();p
 function add(box,cls,text,mid){const m=el("div","m "+cls,text);if(mid&&cls!=="sys"){m.dataset.mid=mid;m.dataset.scope=box.id==="fmsgs"?"f":"s";bind(m);paint(m)}box.appendChild(m);box.scrollTop=box.scrollHeight}
 function status(){$("sdot").className="dot"+(state==="chat"?" on":state==="wait"?" wait":"");
 $("stat").textContent=state==="chat"?`${pnick} · ${pdist||"Kerala"}`:state==="wait"?`Searching… ${Math.max(peers.length-1,0)} other${peers.length===2?"":"s"} online`:live?"Tap Find someone":"Not connected";
-const c=state==="chat";$("sin").disabled=$("ssend").disabled=!c;$("add").disabled=!c;$("next").textContent=state==="idle"?"Find someone":"Next"}
+const c=state==="chat";$("sin").placeholder=c?"Type a message…":"Waiting for a stranger…";$("add").disabled=!c;$("next").textContent=state==="idle"?"Find someone":"Next"}
 function start(){if(!live){add($("smsgs"),"sys","Not connected yet. Check the Supabase URL and key in index.html.");return}state="wait";pid=null;mutual=false;clearTimeout(pt);setP({nick,dist,state:"wait",partner:null,avoid,by:myId});status();tick()}
 function connect(o){pid=o.peer;pnick=String(o.presence.nick||"Stranger").slice(0,18);pdist=String(o.presence.dist||"");state="chat";mutual=false;
 $("smsgs").innerHTML="";add($("smsgs"),"sys",`You are chatting with ${pnick}. Say ഹായ്! 👋`);add($("smsgs"),"sys","Tip: double-tap a message for ❤️, hold to react.");setP({state:"chat",partner:o.peer});status();
@@ -119,8 +119,8 @@ if(!b)continue;used.add(a.peer);used.add(b.peer);if(a.peer===tab)return connect(
 if(state==="chat"){const p=peers.find(x=>x.peer===pid);if(!p)return end("Stranger left the chat.");
 if(p.presence.partner===tab)mutual=true;else if(mutual)end("Stranger moved on.")}
 $("online").textContent=live?`● ${Math.max(peers.length,1)} online`:"";status();renderChips()}
-function sendS(){const v=$("sin").value.trim();if(!v||state!=="chat")return;const mid=nid();send("dm",{to:pid,text:v,mid});add($("smsgs"),"me",v,mid);$("sin").value=""}
-$("ssend").onclick=sendS;$("sin").onkeydown=e=>{if(e.key==="Enter")sendS()};
+function sendS(){const v=$("sin").value.trim();if(!v)return;if(state!=="chat"){add($("smsgs"),"sys","Not connected to anyone yet. Tap Find someone.");return}const mid=nid();send("dm",{to:pid,text:v,mid});add($("smsgs"),"me",v,mid);$("sin").value="";$("sin").focus()}
+$("ssend").onmousedown=e=>e.preventDefault();$("ssend").onclick=sendS;$("sin").onkeydown=e=>{if(e.key==="Enter")sendS()};
 $("next").onclick=()=>{if(state==="chat")avoid=pid;start()};
 $("add").onclick=()=>{if(state!=="chat")return;send("frq",{to:pid,nick,by:myId});add($("smsgs"),"sys","Friend request sent.");$("add").disabled=true};
 function renderReqs(){const b=$("reqs");b.innerHTML="";incoming.forEach((r,i)=>{const d=el("div","req");d.append(el("span",null,`${r.nick} wants to be friends`));d.append(el("span","sp"));
